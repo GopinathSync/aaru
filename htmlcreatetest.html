@@ -1,0 +1,227 @@
+import React, { useState } from 'react';
+import { submitQuestions2 } from '../services/apiServices';
+import { useNavigate } from 'react-router-dom';
+import './CreateTest.css';
+
+import { FaTrashAlt } from 'react-icons/fa'; // Correct import for the trash icon
+
+const RemoveButton = ({ onClick, isQuestion }) => (
+  <button className={isQuestion ? "remove-button-text" : "remove-button"} onClick={onClick}>
+    <FaTrashAlt /> {/* Render the trash/dustbin icon */}
+  </button>
+);
+
+const CreateTest = () => {
+  const navigate = useNavigate();
+  const [testTitle, setTestTitle] = useState('');
+  const [testIntroduction, setTestIntroduction] = useState('');
+  const [questions, setQuestions] = useState([]);
+  const [link, setLink] = useState('');
+
+  // Add question types
+  const addTrueFalseQuestion = () => {
+    setQuestions([...questions, { type: 'truefalse', text: 'Is this statement true or false?', correctAnswer: null, difficulty: 'easy' }]);
+  };
+
+  const addMultipleChoiceQuestion = () => {
+    setQuestions([...questions, { type: 'multiplechoice', text: '', options: ['', '', '', ''], correctAnswer: null, difficulty: 'easy' }]);
+  };
+
+  const addFillInTheBlankQuestion = () => {
+    setQuestions([...questions, { type: 'fillintheblank', text: '____ is the capital of France.', correctAnswer: '', difficulty: 'easy' }]);
+  };
+
+  const addMultipleResponseQuestion = () => {
+    setQuestions([...questions, { type: 'multipleresponse', text: '', options: ['', '', '', ''], correctAnswers: [], difficulty: 'easy' }]);
+  };
+
+  const handleDifficultyChange = (qIndex, difficulty) => {
+    const updatedQuestions = [...questions];
+    updatedQuestions[qIndex].difficulty = difficulty;
+    setQuestions(updatedQuestions);
+  };
+
+  const handleQuestionTextChange = (index, value) => {
+    const newQuestions = [...questions];
+    newQuestions[index].text = value;
+    setQuestions(newQuestions);
+  };
+
+  const handleOptionChange = (qIndex, optionIndex, value) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].options[optionIndex] = value;
+
+    if (newQuestions[qIndex].options[optionIndex].trim() === '') {
+      newQuestions[qIndex].options = newQuestions[qIndex].options.filter((_, index) => index !== optionIndex);
+    }
+
+    if (newQuestions[qIndex].options.length > 0 && newQuestions[qIndex].options[newQuestions[qIndex].options.length - 1] !== '') {
+      newQuestions[qIndex].options.push('');
+    }
+
+    setQuestions(newQuestions);
+  };
+
+  const handleCorrectAnswerChange = (qIndex, optionIndex) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].correctAnswer = optionIndex;
+    setQuestions(newQuestions);
+  };
+
+  const handleFillInTheBlankAnswerChange = (qIndex, value) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].correctAnswer = value;
+    setQuestions(newQuestions);
+  };
+
+  const handleRemoveQuestion = (qIndex) => {
+    const updatedQuestions = questions.filter((_, index) => index !== qIndex);
+    setQuestions(updatedQuestions);
+  };
+
+  const handleRemoveOption = (qIndex, optionIndex) => {
+    const updatedQuestions = [...questions];
+    updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.filter((_, index) => index !== optionIndex);
+    setQuestions(updatedQuestions);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const result = await submitQuestions2(testTitle, testIntroduction, questions);
+      const testId = result.test_id;
+      const generatedLink = `http://localhost:3000/test/${testId}`;
+      localStorage.setItem("testId", testId);
+      setLink(generatedLink);
+      navigate('/publish');
+    } catch (error) {
+      console.error('Submission failed:', error);
+    }
+  };
+
+  return (
+    <div className="test-form">
+      <h1><b>Create Questions</b></h1>
+      <form onSubmit={handleSubmit}>
+        {/* Test Name */}
+        <div className="form-group0">
+          <label className="form-label">Test Name</label>
+          <input
+            type="text"
+            value={testTitle}
+            onChange={(e) => setTestTitle(e.target.value)}
+            placeholder="Enter test title"
+            required
+            className="input-field"
+          />
+        </div>
+
+        {/* Test Introduction */}
+        <div className="form-group0">
+          <label className="form-label">Introduction</label>
+          <textarea
+            value={testIntroduction}
+            onChange={(e) => setTestIntroduction(e.target.value)}
+            placeholder="Enter test introduction"
+            required
+            rows="3"
+            className="textarea-field"
+          />
+        </div>
+
+        {/* Questions */}
+        {questions.map((question, qIndex) => (
+          <div key={qIndex} className="question-group">
+            <div className="question-content">
+              <div className="question-number">{qIndex + 1}.</div>
+              <textarea
+                placeholder="Enter the question here"
+                value={question.text}
+                onChange={(e) => handleQuestionTextChange(qIndex, e.target.value)}
+                className="textarea-field question-text"
+              />
+              <RemoveButton isQuestion={true} onClick={() => handleRemoveQuestion(qIndex)} />
+              {/* Difficulty dropdown */}
+              <div className="dropdown">
+                <button className="dropdown-btn">⋮</button>
+                <div className="dropdown-content">
+                  <button type="button" onClick={() => handleDifficultyChange(qIndex, 'easy')} style={{ backgroundColor: '#c1e1c1' }}>Easy</button>
+                  <button type="button" onClick={() => handleDifficultyChange(qIndex, 'medium')} style={{ backgroundColor: '#ffeb99' }}>Medium</button>
+                  <button type="button" onClick={() => handleDifficultyChange(qIndex, 'hard')} style={{ backgroundColor: '#f6a5a5' }}>Hard</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Question Options */}
+            <div className="form-group">
+              {question.type === 'multiplechoice' && (
+                <>
+                  {question.options.map((option, optionIndex) => (
+                    <div key={optionIndex} className="option-group">
+                      <label className="flex-label">
+                        <input
+                          type="radio"
+                          name={`correctAnswer-${qIndex}`}
+                          checked={question.correctAnswer === optionIndex}
+                          onChange={() => handleCorrectAnswerChange(qIndex, optionIndex)}
+                        />
+                        <input
+                          type="text"
+                          value={option}
+                          onChange={(e) => handleOptionChange(qIndex, optionIndex, e.target.value)}
+                          placeholder={`Option ${optionIndex + 1}`}
+                          className="custom-input"
+                        />
+                        <RemoveButton onClick={() => handleRemoveOption(qIndex, optionIndex)} />
+                      </label>
+                    </div>
+                  ))}
+                </>
+              )}
+              {/* Other question types can follow... */}
+            </div>
+          </div>
+        ))}
+
+        {/* Buttons to add new questions */}
+        <button type="button" onClick={addMultipleChoiceQuestion}>Multiple Choice</button>
+        <button type="button" onClick={addTrueFalseQuestion}>True/False</button>
+        <button type="button" onClick={addMultipleResponseQuestion}>Multiple Response</button>
+        <button type="button" onClick={addFillInTheBlankQuestion}>Fill-in-Blanks</button>
+
+        {/* Submit button */}
+        <button type="submit">Save</button>
+
+        {/* Test link */}
+        {link && (
+          <div className="test-link-container">
+            <p>Your test is published and available at:</p>
+            <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
+          </div>
+        )}
+      </form>
+
+      {/* Styles */}
+      <style jsx>{`
+        .remove-button {
+          background: none;
+          border: none;
+          color: #816c6c;
+          font-size: 1.5em;
+          cursor: pointer;
+          transition: color 0.3s;
+        }
+        .remove-button-text {
+          background: none;
+          border: none;
+          color: #816c6c;
+          font-size: 1em;
+          cursor: pointer;
+          transition: color 0.3s;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default CreateTest;
